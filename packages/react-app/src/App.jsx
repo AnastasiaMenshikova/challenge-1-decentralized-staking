@@ -43,7 +43,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.rinkeby; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -473,7 +473,7 @@ function App(props) {
     );
   }
 
-  const onFinish = e => {
+  const stakeEth = e => {
     tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther(e.stakeAmount) }));
   };
 
@@ -558,7 +558,18 @@ function App(props) {
             </div>
 
             <div style={{ padding: 8 }}>
-              <Form onFinish={onFinish} layout="vertical" labelAlign="left">
+              <Button
+                type={balanceStaked ? "success" : "primary"}
+                onClick={() => {
+                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.01") }));
+                }}
+              >
+                🥩 Stake 0.01 ether!
+              </Button>
+            </div>
+
+            <div style={{ padding: 8 }}>
+              <Form stakeEth={stakeEth} layout="vertical" labelAlign="left">
                 <Form.Item label="Stake Amount" name="stakeAmount" style={{ width: "12.5%", margin: "0 auto" }}>
                   <Input placeholder="0.01" />
                 </Form.Item>
@@ -570,37 +581,6 @@ function App(props) {
               </Form>
             </div>
 
-            {/*
-                🎛 this scaffolding is full of commonly used components
-                this <Contract/> component will automatically parse your ABI
-                and give you a form to interact with it locally
-            */}
-
-            {/*<div style={{ width: 500, margin: "auto", marginTop: 64 }}>
-              <div>Stake Events:</div>
-              <List
-                dataSource={stakeEvents}
-                renderItem={item => {
-                  return (
-                    <List.Item key={item.blockNumber}>
-                      <Address value={item.args[0]} ensProvider={mainnetProvider} fontSize={16} /> =>
-                      <Balance balance={item.args[1]} />
-                    </List.Item>
-                  );
-                }}
-              />
-            </div>*/}
-
-            {/* uncomment for a second contract:
-            <Contract
-              name="SecondContract"
-              signer={userProvider.getSigner()}
-              provider={localProvider}
-              address={address}
-              blockExplorer={blockExplorer}
-              contractConfig={contractConfig}
-            />
-            */}
           </Route>
           <Route path="/contracts">
             <Contract
