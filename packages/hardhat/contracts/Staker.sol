@@ -16,7 +16,7 @@ contract Staker {
     mapping(address => uint256) public balances;
     mapping(address => uint256) public depositTimestamps;
 
-    uint256 public deadline = block.timestamp + 120 seconds;
+    uint256 public deadline;
 
     uint256 public constant rewardRatePerBlock = 0.01 ether;
 
@@ -36,7 +36,7 @@ contract Staker {
 
         balances[msg.sender] += msg.value;
         depositTimestamps[msg.sender] = block.timestamp;
-
+        deadline = block.timestamp + 120 seconds;
         emit Stake(msg.sender, msg.value);
     }
 
