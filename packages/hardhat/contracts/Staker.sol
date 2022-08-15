@@ -18,7 +18,7 @@ contract Staker {
 
     uint256 public deadline = block.timestamp + 120 seconds;
 
-    // uint256 public constant rewardRatePerBlock = 0.01 ether;
+    uint256 public constant rewardRatePerBlock = 0.01 ether;
 
     /* ========== CONSTRUCTOR ========== */
 

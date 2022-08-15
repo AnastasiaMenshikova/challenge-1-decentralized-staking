@@ -5,9 +5,10 @@ import React from "react";
 
 export default function Header() {
   return (
-    <a href="https://github.com/scaffold-eth/scaffold-eth" /*target="_blank" rel="noopener noreferrer"*/>
+    <a href="https://github.com/AnastasiaMenshikova/challenge-1-decentralized-staking" /*target="_blank" rel="noopener noreferrer"*/>
       <PageHeader
         title="🏗 scaffold-eth"
+        subTitle="Demo staking app"
         style={{ cursor: "pointer" }}
       />
     </a>

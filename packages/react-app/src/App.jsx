@@ -246,21 +246,14 @@ function App(props) {
   if (DEBUG) console.log("💵 stakerContractBalance", stakerContractBalance);
 
   // ** keep track of a variables from the contract in the local React state:
-  const balanceStaked = useContractReader(readContracts, "Staker", "balances", [address]);
+  const balanceStaked = useContractReader(readContracts, "Staker", "balanceOf", [address]);
   console.log("💸 balanceStaked:", balanceStaked);
 
   const rewardRatePerBlock = useContractReader(readContracts, "Staker", "rewardRatePerBlock");
   console.log("💵 Reward Rate:", rewardRatePerBlock);
 
-  const claimPeriodLeft = useContractReader(readContracts, "Staker", "claimPeriodLeft");
-  console.log("Claim Period Left:", claimPeriodLeft);
-
-  const withdrawlTimeLeft = useContractReader(readContracts, "Staker", "withdrawlTimeLeft");
-  console.log("Withdrawl Period Left:", withdrawlTimeLeft);
-
-  // ** 📟 Listen for broadcast events
-  const stakeEvents = useEventListener(readContracts, "Staker", "Stake", localProvider, 1);
-  console.log("📟 stake events:", stakeEvents);
+  const timeLeft = useContractReader(readContracts, "Staker", "timeLeft");
+  console.log("Withdrawl Period Left:", timeLeft);
 
 
   // ** Listen for when the contract has been 'completed'
@@ -282,11 +275,6 @@ function App(props) {
       </div>
     );
   }
-
-  /*
-  const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
-  console.log("🏷 Resolved austingriffith.eth as:", addressFromENS)
-  */
 
   //
   // 🧫 DEBUG 👨🏻‍🔬
@@ -473,9 +461,10 @@ function App(props) {
     );
   }
 
-  const stakeEth = e => {
+  const onFinish = e => {
     tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther(e.stakeAmount) }));
   };
+
 
   return (
     <div className="App">
@@ -510,40 +499,24 @@ function App(props) {
           <Route exact path="/">
             {completeDisplay}
 
-            <div style={{ padding: 8, marginTop: 32 }}>
+            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
               <div>Staker Contract:</div>
               <Address value={readContracts && readContracts.Staker && readContracts.Staker.address} />
             </div>
 
-            <div style={{ padding: 8, marginTop: 16 }}>
+            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
               <div>Reward Rate Per Block:</div>
               <Balance balance={rewardRatePerBlock} fontSize={64} /> ETH
             </div>
 
             <div style={{ padding: 8, marginTop: 16, fontWeight: "bold" }}>
-              <div>Claim Period Left:</div>
-              {claimPeriodLeft && humanizeDuration(claimPeriodLeft.toNumber() * 1000)}
-            </div>
-
-            <div style={{ padding: 8, marginTop: 16, fontWeight: "bold" }}>
               <div>Withdrawal Period Left:</div>
-              {withdrawlTimeLeft && humanizeDuration(withdrawlTimeLeft.toNumber() * 1000)}
+              {timeLeft && humanizeDuration(timeLeft.toNumber() * 1000)}
             </div>
 
-            <div style={{ padding: 8 }}>
+            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
               <div>You staked:</div>
               <Balance balance={balanceStaked} fontSize={64} />
-            </div>
-
-            <div style={{ padding: 8 }}>
-              <Button
-                type={"default"}
-                onClick={() => {
-                  tx(writeContracts.Staker.execute());
-                }}
-              >
-                📡 Execute!
-              </Button>
             </div>
 
             <div style={{ padding: 8 }}>
@@ -561,15 +534,15 @@ function App(props) {
               <Button
                 type={balanceStaked ? "success" : "primary"}
                 onClick={() => {
-                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.01") }));
+                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.1") }));
                 }}
               >
-                🥩 Stake 0.01 ether!
+                🥩 Stake 0.1 ether!
               </Button>
             </div>
 
             <div style={{ padding: 8 }}>
-              <Form stakeEth={stakeEth} layout="vertical" labelAlign="left">
+              <Form onFinish={onFinish} layout="vertical" labelAlign="left">
                 <Form.Item label="Stake Amount" name="stakeAmount" style={{ width: "12.5%", margin: "0 auto" }}>
                   <Input placeholder="0.01" />
                 </Form.Item>
@@ -623,12 +596,12 @@ function App(props) {
 
       {/* 🗺 Extra UI like gas price, eth price, faucet, and support: */}
       <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
-        <Row align="middle" gutter={[4, 4]}>
+        <Row align="middle" gutter={[70, 70]}>
           <Col span={8}>
             <Ramp price={price} address={address} networks={NETWORKS} />
           </Col>
 
-          <Col span={8} style={{ textAlign: "center", opacity: 0.8 }}>
+          <Col span={8} style={{ textAlign: "center",  opacity: 1 }}>
             <GasGauge gasPrice={gasPrice} />
           </Col>
         </Row>
