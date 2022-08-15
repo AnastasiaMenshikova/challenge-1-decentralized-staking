@@ -49,7 +49,21 @@ yarn deploy  (to compile, deploy, and publish your contracts to the frontend)
 ```
 Rerun `yarn deploy --reset` whenever you want to deploy new contracts to the frontend.
 
-If you're going to deploy smart contracts to testnet (goerli or rinkeby) use `yarn deploy --network <YOUR_NETWORK>`. For verifying contracts on Etherscan run `yarn verify --network <YOUR_NETWORK>`.
+If you're going to deploy smart contracts to testnet (`goerli` or `rinkeby`) use:
+ 
+ ```bash
+ 
+ yarn deploy --network <YOUR_NETWORK>
+
+ ```
+ 
+ For verifying contracts on Etherscan run:
+ 
+  ```bash
+ 
+ yarn verify --network <YOUR_NETWORK>
+
+ ```
 
 Edit the `targetNetwork` in `App.jsx` (in `packages/react-app/src`) to be the public network where you deployed your smart contract.
 
