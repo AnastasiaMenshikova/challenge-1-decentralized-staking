@@ -1,33 +1,63 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
-import "hardhat/console.sol";
 import "./ExampleExternalContract.sol";
+import "hardhat/console.sol";
 
 contract Staker {
     ExampleExternalContract public exampleExternalContract;
 
-    /* Events */
-    event Stake(address indexed sender, uint256 amount);
+    /* ========== EVENTS ========== */
 
-    /* Types */
-    enum Status {
-        Stake,
-        Success,
-        Withdraw
+    event Stake(address indexed sender, uint256 amount);
+    event Received(address, uint);
+    event Execute(address indexed sender, uint256 amount);
+
+    /* ========== MODIFIERS ========== */
+
+    modifier withdrawlDeadlineReached(bool requireReached) {
+        uint256 timeRemaining = withdrawlTimeLeft();
+        if (requireReached) {
+            require(
+                timeRemaining == 0,
+                "Withdrawal deadline has not been reached"
+            );
+        } else {
+            require(timeRemaining > 0, "Withdrawal deadline has been reached");
+        }
+        _;
     }
 
-    Status public status;
+    modifier claimDeadlineReached(bool requireReached) {
+        uint256 timeRemaining = claimPeriodLeft();
+        if (requireReached) {
+            require(timeRemaining == 0, "Claim deadline has not been reached");
+        } else {
+            require(timeRemaining > 0, "Claim deadline has been reached");
+        }
+        _;
+    }
 
-    /* Variables */
+    modifier notCompleted() {
+        bool completed = exampleExternalContract.completed();
+        require(!completed, "Stake already completed!");
+        _;
+    }
+
+    /* ========== STATE VARIABLES ========== */
+
     mapping(address => uint256) public balances;
+    mapping(address => uint256) public depositTimestamps;
 
-    bool public isExecuted;
-    uint256 public constant threshold = 1 ether;
-    uint256 public deadline = block.timestamp + 120 seconds;
+    // uint256 public constant threshold = 1 ether;
+    uint256 public withdrawlDeadline = block.timestamp + 120 seconds;
+    uint256 public claimDeadline = block.timestamp + 240 seconds;
     uint256 public constant rewardRatePerBlock = 0.01 ether; // change later
+    uint256 public currentBlock = 0;
 
-    constructor(address exampleExternalContractAddress) public {
+    /* ========== CONSTRUCTOR ========== */
+
+    constructor(address exampleExternalContractAddress) {
         exampleExternalContract = ExampleExternalContract(
             exampleExternalContractAddress
         );
@@ -36,15 +66,14 @@ contract Staker {
     // Collect funds in a payable `stake()` function and track individual `balances` with a mapping:
     //  ( make sure to add a `Stake(address,uint256)` event and emit it for the frontend <List/> display )
 
-    function stake() public payable {
-        require(status == Status.Stake, "It's not Stake phase");
-
-        balances[msg.sender] = msg.value;
-
-        if (address(this).balance >= threshold) {
-            complete();
-        }
-
+    function stake()
+        public
+        payable
+        withdrawlDeadlineReached(false)
+        claimDeadlineReached(false)
+    {
+        balances[msg.sender] = balances[msg.sender] + msg.value;
+        depositTimestamps[msg.sender] = block.timestamp;
         emit Stake(msg.sender, msg.value);
     }
 
@@ -52,51 +81,59 @@ contract Staker {
     //  It should either call `exampleExternalContract.complete{value: address(this).balance}()` to send all the value
     //  if the `threshold` was not met, allow everyone to call a `withdraw()` function
 
-    function execute() public {
-        require(!isExecuted, "Already executed");
-        require(block.timestamp >= deadline, "Deadline wasn't met");
-
-        if (status != Status.Stake) {
-            return;
-        }
-
-        if (address(this).balance < threshold) {
-            status = Status.Withdraw;
-        } else {
-            complete();
-        }
-
-        isExecuted = true;
+    function execute() public claimDeadlineReached(true) notCompleted {
+        exampleExternalContract.complete{value: address(this).balance}();
     }
 
     // Add a `withdraw()` function to let users withdraw their balance
 
-    function withdraw() public {
-        require(status == Status.Withdraw, "It's not Withdraw phase");
-
-        uint256 amount = balances[msg.sender];
-        (bool success, ) = msg.sender.call{value: amount}("");
-        require(success, "Failed to send Ether");
-    }
-
-    // Add a `timeLeft()` view function that returns the time left before the deadline for the frontend
-
-    function timeLeft() public view returns (uint256) {
-        if (block.timestamp >= deadline) {
-            return 0;
+    function withdraw()
+        public
+        withdrawlDeadlineReached(true)
+        claimDeadlineReached(false)
+        notCompleted
+    {
+        require(balances[msg.sender] > 0, "You have no balance to withdraw");
+        uint256 withdrawAmount = balances[msg.sender];
+        uint256 periods = block.timestamp - depositTimestamps[msg.sender];
+        for (uint256 i = 0; i < periods; i++) {
+            withdrawAmount += (withdrawAmount * rewardRatePerBlock) / 100;
         }
+        balances[msg.sender] = 0;
 
-        return deadline - block.timestamp;
+        (bool success, ) = msg.sender.call{value: withdrawAmount}("");
+        require(success, "Failed to withdraw");
     }
 
     // Add the `receive()` special function that receives eth and calls stake()
 
     receive() external payable {
-        stake();
+        emit Received(msg.sender, msg.value);
     }
 
-    function complete() private {
-        status = Status.Success;
-        exampleExternalContract.complete{value: address(this).balance}();
+    /* ========== VIEWS ========== */
+
+    /*
+        READ-ONLY function to calculate the time remaining before the minimum staking period has passed
+    */
+    function withdrawlTimeLeft() public view returns (uint256) {
+        return
+            block.timestamp < withdrawlDeadline
+                ? withdrawlDeadline - block.timestamp
+                : 0;
+    }
+
+    /*
+        READ-ONLY function to calculate the time remaining before the minimum staking period has passed
+    */
+    function claimPeriodLeft() public view returns (uint256) {
+        return
+            block.timestamp < claimDeadline
+                ? claimDeadline - block.timestamp
+                : 0;
+    }
+
+    function balanceOf(address account) external view returns (uint256) {
+        return balances[account];
     }
 }

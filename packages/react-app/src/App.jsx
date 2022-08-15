@@ -1,6 +1,7 @@
 import WalletConnectProvider from "@walletconnect/web3-provider";
+//import Torus from "@toruslabs/torus-embed"
 import WalletLink from "walletlink";
-import { Alert, Button, Col, Menu, Row, List } from "antd";
+import { Alert, Button, Col, Menu, Row, List, Form, Input } from "antd";
 import "antd/dist/antd.css";
 import React, { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Link, Route, Switch } from "react-router-dom";
@@ -29,18 +30,13 @@ import humanizeDuration from "humanize-duration";
 const { ethers } = require("ethers");
 /*
     Welcome to 🏗 scaffold-eth !
-
     Code:
     https://github.com/austintgriffith/scaffold-eth
-
     Support:
     https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA
     or DM @austingriffith on twitter or telegram
-
     You should get your own Infura.io ID and put it in `constants.js`
     (this is your connection to the main Ethereum network for ENS etc.)
-
-
     🌏 EXTERNAL CONTRACTS:
     You can also bring in contract artifacts in `constants.js`
     (and then use the `useExternalContractLoader()` hook!)
@@ -129,7 +125,19 @@ const web3Modal = new Web3Modal({
         key: "pk_live_5A7C91B2FC585A17", // required
       },
     },
-
+    // torus: {
+    //   package: Torus,
+    //   options: {
+    //     networkParams: {
+    //       host: "https://localhost:8545", // optional
+    //       chainId: 1337, // optional
+    //       networkId: 1337 // optional
+    //     },
+    //     config: {
+    //       buildEnv: "development" // optional
+    //     },
+    //   },
+    // },
     "custom-walletlink": {
       display: {
         logo: "https://play-lh.googleusercontent.com/PjoJoG27miSglVBXoXrxBSLveV6e3EeBPpNY55aiUUBM9Q1RCETKCOqdOkX2ZydqVf0",
@@ -237,25 +245,23 @@ function App(props) {
   );
   if (DEBUG) console.log("💵 stakerContractBalance", stakerContractBalance);
 
-  // ** keep track of total 'threshold' needed of ETH
-  const threshold = useContractReader(readContracts, "Staker", "threshold");
-  console.log("💵 threshold:", threshold);
-
-  // ** keep track of a variable from the contract in the local React state:
+  // ** keep track of a variables from the contract in the local React state:
   const balanceStaked = useContractReader(readContracts, "Staker", "balances", [address]);
   console.log("💸 balanceStaked:", balanceStaked);
 
-  // ** keep track of a variable from the contract
   const rewardRatePerBlock = useContractReader(readContracts, "Staker", "rewardRatePerBlock");
   console.log("💵 Reward Rate:", rewardRatePerBlock);
+
+  const claimPeriodLeft = useContractReader(readContracts, "Staker", "claimPeriodLeft");
+  console.log("Claim Period Left:", claimPeriodLeft);
+
+  const withdrawlTimeLeft = useContractReader(readContracts, "Staker", "withdrawlTimeLeft");
+  console.log("Withdrawl Period Left:", withdrawlTimeLeft);
 
   // ** 📟 Listen for broadcast events
   const stakeEvents = useEventListener(readContracts, "Staker", "Stake", localProvider, 1);
   console.log("📟 stake events:", stakeEvents);
 
-  // ** keep track of a variable from the contract in the local React state:
-  const timeLeft = useContractReader(readContracts, "Staker", "timeLeft");
-  console.log("⏳ timeLeft:", timeLeft);
 
   // ** Listen for when the contract has been 'completed'
   const complete = useContractReader(readContracts, "ExampleExternalContract", "completed");
@@ -467,6 +473,10 @@ function App(props) {
     );
   }
 
+  const onFinish = e => {
+    tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther(e.stakeAmount) }));
+  };
+
   return (
     <div className="App">
       {/* ✏️ Edit the header and change the title to your project name */}
@@ -500,28 +510,28 @@ function App(props) {
           <Route exact path="/">
             {completeDisplay}
 
-            <div style={{ padding: 8, marginTop: 16 }}>
+            <div style={{ padding: 8, marginTop: 32 }}>
               <div>Staker Contract:</div>
               <Address value={readContracts && readContracts.Staker && readContracts.Staker.address} />
             </div>
 
             <div style={{ padding: 8, marginTop: 16 }}>
-              <div>Reward Rate Per Second:</div>
+              <div>Reward Rate Per Block:</div>
               <Balance balance={rewardRatePerBlock} fontSize={64} /> ETH
             </div>
 
-            <div style={{ padding: 8, marginTop: 16, fontWeight: "bold"}}>
-              <div>Timeleft:</div>
-              {timeLeft && humanizeDuration(timeLeft.toNumber() * 1000)}
+            <div style={{ padding: 8, marginTop: 16, fontWeight: "bold" }}>
+              <div>Claim Period Left:</div>
+              {claimPeriodLeft && humanizeDuration(claimPeriodLeft.toNumber() * 1000)}
             </div>
 
-            <div style={{ padding: 8, fontWeight: "bold"}}>
-              <div>Total Available ETH in Contract:</div>
-              <Balance balance={stakerContractBalance} fontSize={64} />
+            <div style={{ padding: 8, marginTop: 16, fontWeight: "bold" }}>
+              <div>Withdrawal Period Left:</div>
+              {withdrawlTimeLeft && humanizeDuration(withdrawlTimeLeft.toNumber() * 1000)}
             </div>
 
-            <div style={{ padding: 8,fontWeight: "bold" }}>
-              <div>ETH Locked 🔒 in Staker Contract:</div>
+            <div style={{ padding: 8 }}>
+              <div>You staked:</div>
               <Balance balance={balanceStaked} fontSize={64} />
             </div>
 
@@ -548,17 +558,49 @@ function App(props) {
             </div>
 
             <div style={{ padding: 8 }}>
-              <Button
-                type={balanceStaked ? "success" : "primary"}
-                onClick={() => {
-                  tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther("0.05") }));
-                }}
-              >
-                🥩 Stake 0.05 ether!
-              </Button>
+              <Form onFinish={onFinish} layout="vertical" labelAlign="left">
+                <Form.Item label="Stake Amount" name="stakeAmount" style={{ width: "12.5%", margin: "0 auto" }}>
+                  <Input placeholder="0.01" />
+                </Form.Item>
+                <Form.Item>
+                  <Button htmlType="submit" style={{ marginTop: 8 }}>
+                    🥩 Stake!
+                  </Button>
+                </Form.Item>
+              </Form>
             </div>
 
+            {/*
+                🎛 this scaffolding is full of commonly used components
+                this <Contract/> component will automatically parse your ABI
+                and give you a form to interact with it locally
+            */}
 
+            {/*<div style={{ width: 500, margin: "auto", marginTop: 64 }}>
+              <div>Stake Events:</div>
+              <List
+                dataSource={stakeEvents}
+                renderItem={item => {
+                  return (
+                    <List.Item key={item.blockNumber}>
+                      <Address value={item.args[0]} ensProvider={mainnetProvider} fontSize={16} /> =>
+                      <Balance balance={item.args[1]} />
+                    </List.Item>
+                  );
+                }}
+              />
+            </div>*/}
+
+            {/* uncomment for a second contract:
+            <Contract
+              name="SecondContract"
+              signer={userProvider.getSigner()}
+              provider={localProvider}
+              address={address}
+              blockExplorer={blockExplorer}
+              contractConfig={contractConfig}
+            />
+            */}
           </Route>
           <Route path="/contracts">
             <Contract
@@ -599,7 +641,6 @@ function App(props) {
         {faucetHint}
       </div>
 
-
       {/* 🗺 Extra UI like gas price, eth price, faucet, and support: */}
       <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
         <Row align="middle" gutter={[4, 4]}>
@@ -609,20 +650,6 @@ function App(props) {
 
           <Col span={8} style={{ textAlign: "center", opacity: 0.8 }}>
             <GasGauge gasPrice={gasPrice} />
-          </Col>
-          <Col span={8} style={{ textAlign: "center", opacity: 1 }}>
-            <Button
-              onClick={() => {
-                window.open("https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA");
-              }}
-              size="large"
-              shape="round"
-            >
-              <span style={{ marginRight: 8 }} role="img" aria-label="support">
-                💬
-              </span>
-              Support
-            </Button>
           </Col>
         </Row>
 
