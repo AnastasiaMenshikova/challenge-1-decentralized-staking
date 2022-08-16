@@ -18,7 +18,6 @@ import {
   useOnBlock,
   useUserProviderAndSigner,
 } from "eth-hooks";
-import { useEventListener } from "eth-hooks/events/useEventListener";
 import { useExchangeEthPrice } from "eth-hooks/dapps/dex";
 
 import { useContractConfig } from "./hooks";
@@ -249,11 +248,14 @@ function App(props) {
   const balanceStaked = useContractReader(readContracts, "Staker", "balanceOf", [address]);
   console.log("💸 balanceStaked:", balanceStaked);
 
-  const rewardRatePerBlock = useContractReader(readContracts, "Staker", "rewardRatePerBlock");
-  console.log("💵 Reward Rate:", rewardRatePerBlock);
-
+  const earned = useContractReader(readContracts, "Staker", "getEarned", [address]);
+  console.log("💸 earned:", earned);
+  
   const timeLeft = useContractReader(readContracts, "Staker", "timeLeft");
   console.log("Withdrawl Period Left:", timeLeft);
+
+  const rewardPool = useContractReader(readContracts, "Staker", "totalStaked");
+  console.log("💵 Reward Rate:", rewardPool);
 
 
   // ** Listen for when the contract has been 'completed'
@@ -434,33 +436,6 @@ function App(props) {
   let faucetHint = "";
   const faucetAvailable = localProvider && localProvider.connection && targetNetwork.name.indexOf("local") !== -1;
 
-  const [faucetClicked, setFaucetClicked] = useState(false);
-  if (
-    !faucetClicked &&
-    localProvider &&
-    localProvider._network &&
-    localProvider._network.chainId === 31337 &&
-    yourLocalBalance &&
-    ethers.utils.formatEther(yourLocalBalance) <= 0
-  ) {
-    faucetHint = (
-      <div style={{ padding: 16 }}>
-        <Button
-          type="primary"
-          onClick={() => {
-            faucetTx({
-              to: address,
-              value: ethers.utils.parseEther("0.01"),
-            });
-            setFaucetClicked(true);
-          }}
-        >
-          💰 Grab funds from the faucet ⛽️
-        </Button>
-      </div>
-    );
-  }
-
   const onFinish = e => {
     tx(writeContracts.Staker.stake({ value: ethers.utils.parseEther(e.stakeAmount) }));
   };
@@ -504,11 +479,6 @@ function App(props) {
               <Address value={readContracts && readContracts.Staker && readContracts.Staker.address} />
             </div>
 
-            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
-              <div>Reward Rate Per Block:</div>
-              <Balance balance={rewardRatePerBlock} fontSize={64} /> ETH
-            </div>
-
             <div style={{ padding: 8, marginTop: 16, fontWeight: "bold" }}>
               <div>Withdrawal Period Left:</div>
               {timeLeft && humanizeDuration(timeLeft.toNumber() * 1000)}
@@ -516,7 +486,17 @@ function App(props) {
 
             <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
               <div>You staked:</div>
-              <Balance balance={balanceStaked} fontSize={64} />
+              <Balance balance={balanceStaked} fontSize={64} /> ETH
+            </div>
+
+            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
+              <div>Estimate rewards:</div>
+              <Balance balance={earned} fontSize={64} /> ETH
+            </div>
+
+            <div style={{ padding: 8,  marginTop: 16, fontWeight: "bold" }}>
+              <div>Reward pool:</div>
+              <Balance balance={rewardPool} fontSize={64} /> ETH
             </div>
 
             <div style={{ padding: 8 }}>
@@ -526,7 +506,7 @@ function App(props) {
                   tx(writeContracts.Staker.withdraw());
                 }}
               >
-                🏧 Withdraw
+                🏧 Withdraw deposit
               </Button>
             </div>
 
@@ -544,7 +524,7 @@ function App(props) {
             <div style={{ padding: 8 }}>
               <Form onFinish={onFinish} layout="vertical" labelAlign="left">
                 <Form.Item label="Stake Amount" name="stakeAmount" style={{ width: "12.5%", margin: "0 auto" }}>
-                  <Input placeholder="0.01" />
+                  <Input placeholder="min. 0.01" />
                 </Form.Item>
                 <Form.Item>
                   <Button htmlType="submit" style={{ marginTop: 8 }}>
